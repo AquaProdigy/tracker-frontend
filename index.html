@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskFlow</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: #2a2a3d;
+    --accent: #7c6bff;
+    --accent2: #ff6b9d;
+    --text: #f0f0ff;
+    --muted: #6b6b8a;
+    --done: #2ecc71;
+    --danger: #ff4757;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background noise */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Header */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10, 10, 15, 0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+  }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  .user-email {
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* Buttons */
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { background: #6b5aee; transform: translateY(-1px); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid rgba(255,71,87,0.3);
+  }
+  .btn-danger:hover { background: rgba(255,71,87,0.1); }
+
+  .btn-sm { padding: 6px 14px; font-size: 13px; }
+
+  /* Auth screen */
+  #auth-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 64px);
+    padding: 40px 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .auth-hero {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .auth-hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, var(--text) 0%, var(--muted) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+  }
+
+  .auth-hero h1 span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .auth-hero p {
+    color: var(--muted);
+    font-size: 16px;
+    max-width: 400px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .auth-buttons { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  .btn-auth-primary {
+    background: linear-gradient(135deg, var(--accent), #9b59b6);
+    color: white;
+    font-size: 15px;
+    padding: 12px 28px;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(124, 107, 255, 0.3);
+  }
+  .btn-auth-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(124, 107, 255, 0.4); }
+
+  .btn-auth-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 15px;
+    padding: 12px 28px;
+    border-radius: 10px;
+  }
+  .btn-auth-secondary:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .modal-overlay.active { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 420px;
+    animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 20px;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .modal-close:hover { background: var(--surface2); color: var(--text); }
+
+  .modal h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 24px;
+  }
+
+  /* Form */
+  .form-group { margin-bottom: 16px; }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    transition: all 0.2s;
+    outline: none;
+    resize: none;
+  }
+
+  input:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124, 107, 255, 0.15);
+  }
+
+  input::placeholder, textarea::placeholder { color: var(--muted); }
+
+  .form-error {
+    color: var(--danger);
+    font-size: 13px;
+    margin-top: 8px;
+    display: none;
+  }
+
+  .form-error.show { display: block; }
+
+  .form-submit { width: 100%; margin-top: 8px; justify-content: center; font-size: 15px; padding: 13px; }
+
+  /* App screen */
+  #app-screen {
+    display: none;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Add task */
+  .add-task-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 48px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    transition: border-color 0.2s;
+  }
+  .add-task-bar:focus-within { border-color: var(--accent); }
+
+  .add-task-bar input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 4px 8px;
+    font-size: 15px;
+  }
+  .add-task-bar input:focus { box-shadow: none; }
+
+  /* Sections */
+  .section {
+    margin-bottom: 40px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+  }
+
+  .section-count {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  /* Task list */
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .task-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    animation: taskIn 0.3s ease;
+  }
+
+  @keyframes taskIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .task-item:hover {
+    border-color: var(--accent);
+    transform: translateX(4px);
+    background: var(--surface2);
+  }
+
+  .task-item.done {
+    opacity: 0.6;
+    border-color: rgba(46, 204, 113, 0.2);
+  }
+
+  .task-item.done:hover { border-color: rgba(46, 204, 113, 0.5); }
+
+  .task-check {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .task-item.done .task-check {
+    background: var(--done);
+    border-color: var(--done);
+  }
+
+  .task-check svg { display: none; }
+  .task-item.done .task-check svg { display: block; }
+
+  .task-title {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .task-item.done .task-title {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+
+  .task-arrow {
+    color: var(--muted);
+    font-size: 18px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .task-item:hover .task-arrow { opacity: 1; }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  .empty-text { font-size: 15px; }
+
+  /* Task detail modal */
+  .task-modal-body { display: flex; flex-direction: column; gap: 16px; }
+
+  .task-status-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .task-status-toggle:hover { border-color: var(--accent); }
+
+  .toggle-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .toggle-check.done {
+    background: var(--done);
+    border-color: var(--done);
+  }
+
+  .toggle-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 32px 0;
+  }
+
+  /* Toast */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    animation: toastIn 0.3s ease;
+    min-width: 240px;
+  }
+
+  .toast.success { border-left: 3px solid var(--done); }
+  .toast.error { border-left: 3px solid var(--danger); }
+
+  @keyframes toastIn {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Loading */
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">TaskFlow</div>
+  <div class="header-right">
+    <span class="user-email" id="user-email" style="display:none"></span>
+    <div id="header-auth-btns">
+      <button class="btn btn-ghost btn-sm" onclick="openModal('login-modal')">Войти</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('register-modal')" style="margin-left:8px">Регистрация</button>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="logout-btn" style="display:none" onclick="logout()">Выйти</button>
+  </div>
+</header>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-hero">
+    <h1>Задачи под<br><span>контролем</span></h1>
+    <p>Простой и удобный планировщик задач. Создавай, отслеживай, завершай.</p>
+  </div>
+  <div class="auth-buttons">
+    <button class="btn btn-auth-primary" onclick="openModal('register-modal')">Начать бесплатно</button>
+    <button class="btn btn-auth-secondary" onclick="openModal('login-modal')">Войти</button>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="app-screen">
+  <div class="add-task-bar">
+    <input type="text" id="new-task-title" placeholder="Добавить новую задачу..." maxlength="200">
+    <button class="btn btn-primary btn-sm" onclick="createTask()">Добавить</button>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Активные</span>
+      <span class="section-count" id="todo-count">0</span>
+    </div>
+    <div class="task-list" id="todo-list">
+      <div class="empty-state">
+        <div class="empty-icon">✦</div>
+        <div class="empty-text">Нет активных задач</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Выполненные</span>
+      <span class="section-count" id="done-count">0</span>
+    </div>
+    <div class="task-list" id="done-list">
+      <div class="empty-state">
+        <div class="empty-icon">○</div>
+        <div class="empty-text">Выполненных задач пока нет</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTER MODAL -->
+<div class="modal-overlay" id="register-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('register-modal')">✕</button>
+    <h2>Регистрация</h2>
+    <form id="register-form" onsubmit="return false">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@example.com" required>
+      </div>
+      <div class="form-group">
+        <label>Пароль</label>
+        <input type="password" id="reg-password" placeholder="Минимум 8 символов" required>
+      </div>
+      <div class="form-group">
+        <label>Повторите пароль</label>
+        <input type="password" id="reg-password2" placeholder="Повторите пароль" required>
+      </div>
+      <div class="form-error" id="reg-error"></div>
+      <button type="submit" class="btn btn-primary form-submit" onclick="register()">Создать аккаунт</button>
+    </form>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="login-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('login-modal')">✕</button>
+    <h2>Вход</h2>
+    <form id="login-form" onsubmit="return false">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" required>
+      </div>
+      <div class="form-group">
+        <label>Пароль</label>
+        <input type="password" id="login-password" placeholder="Ваш пароль" required>
+      </div>
+      <div class="form-error" id="login-error"></div>
+      <button type="submit" class="btn btn-primary form-submit" onclick="login()">Войти</button>
+    </form>
+  </div>
+</div>
+
+<!-- TASK DETAIL MODAL -->
+<div class="modal-overlay" id="task-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('task-modal')">✕</button>
+    <h2>Задача</h2>
+    <div class="task-modal-body">
+      <div class="form-group">
+        <label>Заголовок</label>
+        <input type="text" id="task-edit-title" placeholder="Заголовок задачи">
+      </div>
+      <div class="form-group">
+        <label>Описание</label>
+        <textarea id="task-edit-desc" rows="4" placeholder="Описание задачи..."></textarea>
+      </div>
+      <div class="task-status-toggle" onclick="toggleTaskStatus()">
+        <div class="toggle-check" id="toggle-check"></div>
+        <span class="toggle-label" id="toggle-label">Пометить как выполненную</span>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" onclick="deleteCurrentTask()">Удалить задачу</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+const API = 'http://localhost:90';
+let token = localStorage.getItem('token');
+let currentTask = null;
+let saveTimer = null;
+let tasks = [];
+
+// ── INIT ──
+$(document).ready(function() {
+  if (token) {
+    loadUser();
+  }
+  // Close modal on overlay click
+  $('.modal-overlay').on('click', function(e) {
+    if (e.target === this) closeModal(this.id);
+  });
+  // Auto-save on input
+  $('#task-edit-title, #task-edit-desc').on('input', function() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveCurrentTask, 800);
+  });
+  // Enter to add task
+  $('#new-task-title').on('keypress', function(e) {
+    if (e.key === 'Enter') createTask();
+  });
+});
+
+// ── AUTH ──
+function loadUser() {
+  $.ajax({
+    url: API + '/user',
+    headers: { 'Authorization': 'Bearer ' + token },
+    success: function(user) {
+      showApp(user.email);
+      loadTasks();
+    },
+    error: function() {
+      token = null;
+      localStorage.removeItem('token');
+    }
+  });
+}
+
+function register() {
+  const email = $('#reg-email').val().trim();
+  const pass = $('#reg-password').val();
+  const pass2 = $('#reg-password2').val();
+
+  if (pass !== pass2) {
+    showError('reg-error', 'Пароли не совпадают');
+    return;
+  }
+  if (pass.length < 8) {
+    showError('reg-error', 'Пароль должен быть не менее 8 символов');
+    return;
+  }
+
+  $.ajax({
+    url: API + '/auth/register',
+    method: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify({ email, password: pass }),
+    success: function(data, status, xhr) {
+      const t = xhr.getResponseHeader('Authorization')?.replace('Bearer ', '');
+      if (t) {
+        token = t;
+        localStorage.setItem('token', t);
+        closeModal('register-modal');
+        showApp(email);
+        loadTasks();
+        toast('Добро пожаловать!', 'success');
+      }
+    },
+    error: function(xhr) {
+      const msg = xhr.responseJSON?.message || 'Ошибка регистрации';
+      showError('reg-error', msg);
+    }
+  });
+}
+
+function login() {
+  const email = $('#login-email').val().trim();
+  const pass = $('#login-password').val();
+
+  $.ajax({
+    url: API + '/auth/login',
+    method: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify({ email, password: pass }),
+    success: function(data, status, xhr) {
+      const t = xhr.getResponseHeader('Authorization')?.replace('Bearer ', '');
+      if (t) {
+        token = t;
+        localStorage.setItem('token', t);
+        closeModal('login-modal');
+        showApp(email);
+        loadTasks();
+        toast('С возвращением!', 'success');
+      }
+    },
+    error: function(xhr) {
+      const msg = xhr.responseJSON?.message || 'Неверный email или пароль';
+      showError('login-error', msg);
+    }
+  });
+}
+
+function logout() {
+  token = null;
+  localStorage.removeItem('token');
+  tasks = [];
+  $('#app-screen').hide();
+  $('#auth-screen').show();
+  $('#header-auth-btns').show();
+  $('#logout-btn').hide();
+  $('#user-email').hide();
+}
+
+// ── TASKS ──
+function loadTasks() {
+  $.ajax({
+    url: API + '/tasks',
+    headers: { 'Authorization': 'Bearer ' + token },
+    success: function(data) {
+      tasks = data;
+      renderTasks();
+    },
+    error: function(xhr) {
+      if (xhr.status === 401) logout();
+    }
+  });
+}
+
+function renderTasks() {
+  const todo = tasks.filter(t => t.status !== 'COMPLETED');
+  const done = tasks.filter(t => t.status === 'COMPLETED');
+
+  $('#todo-count').text(todo.length);
+  $('#done-count').text(done.length);
+
+  renderList('#todo-list', todo);
+  renderList('#done-list', done);
+}
+
+function renderList(selector, list) {
+  const $list = $(selector).empty();
+  if (!list.length) {
+    const isEmpty = selector === '#todo-list';
+    $list.html(`<div class="empty-state">
+      <div class="empty-icon">${isEmpty ? '✦' : '○'}</div>
+      <div class="empty-text">${isEmpty ? 'Нет активных задач' : 'Выполненных задач пока нет'}</div>
+    </div>`);
+    return;
+  }
+  list.forEach(task => $list.append(createTaskEl(task)));
+}
+
+function createTaskEl(task) {
+  const done = task.status === 'COMPLETED';
+  return $(`
+    <div class="task-item ${done ? 'done' : ''}" data-id="${task.id}">
+      <div class="task-check">
+        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+          <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="task-title">${escHtml(task.title)}</div>
+      <div class="task-arrow">›</div>
+    </div>
+  `).on('click', function() { openTaskModal(task); });
+}
+
+function createTask() {
+  const title = $('#new-task-title').val().trim();
+  if (!title) return;
+
+  $.ajax({
+    url: API + '/tasks',
+    method: 'POST',
+    contentType: 'application/json',
+    headers: { 'Authorization': 'Bearer ' + token },
+    data: JSON.stringify({ title }),
+    success: function() {
+      $('#new-task-title').val('');
+      loadTasks();
+      toast('Задача добавлена', 'success');
+    },
+    error: function(xhr) {
+      if (xhr.status === 401) logout();
+      else toast(xhr.responseJSON?.message || 'Ошибка', 'error');
+    }
+  });
+}
+
+function openTaskModal(task) {
+  currentTask = { ...task };
+  $('#task-edit-title').val(task.title);
+  $('#task-edit-desc').val(task.description || '');
+  updateToggle(task.status === 'COMPLETED');
+  openModal('task-modal');
+}
+
+function updateToggle(done) {
+  if (done) {
+    $('#toggle-check').addClass('done');
+    $('#toggle-label').text('Пометить как невыполненную');
+  } else {
+    $('#toggle-check').removeClass('done');
+    $('#toggle-label').text('Пометить как выполненную');
+  }
+}
+
+function toggleTaskStatus() {
+  if (!currentTask) return;
+  const newDone = currentTask.status !== 'COMPLETED';
+  currentTask.status = newDone ? 'COMPLETED' : 'ONGOING';
+  updateToggle(newDone);
+  saveCurrentTask();
+}
+
+function saveCurrentTask() {
+  if (!currentTask) return;
+
+  const title = $('#task-edit-title').val().trim();
+  const description = $('#task-edit-desc').val().trim();
+
+  if (!title) return;
+
+  const data = {
+    title: title,
+    status: currentTask.status
+  };
+
+  if (description.length > 0) {
+    data.description = description;
+  }
+
+  $.ajax({
+    url: API + '/tasks/' + currentTask.id,
+    method: 'PUT',
+    contentType: 'application/json',
+    headers: { 'Authorization': 'Bearer ' + token },
+    data: JSON.stringify(data),
+    success: function() {
+      const idx = tasks.findIndex(t => t.id === currentTask.id);
+      if (idx !== -1) {
+        tasks[idx] = { ...currentTask, title, description };
+      }
+      renderTasks();
+    },
+    error: function(xhr) {
+      if (xhr.status === 401) logout();
+    }
+  });
+}
+
+function deleteCurrentTask() {
+  if (!currentTask) return;
+  $.ajax({
+    url: API + '/tasks/' + currentTask.id,
+    method: 'DELETE',
+    headers: { 'Authorization': 'Bearer ' + token },
+    success: function() {
+      tasks = tasks.filter(t => t.id !== currentTask.id);
+      renderTasks();
+      closeModal('task-modal');
+      currentTask = null;
+      toast('Задача удалена', 'success');
+    },
+    error: function(xhr) {
+      if (xhr.status === 401) logout();
+    }
+  });
+}
+
+// ── UI HELPERS ──
+function showApp(email) {
+  $('#auth-screen').hide();
+  $('#app-screen').show();
+  $('#header-auth-btns').hide();
+  $('#logout-btn').show();
+  $('#user-email').text(email).show();
+}
+
+function openModal(id) {
+  $('#' + id).addClass('active');
+  // clear errors
+  $('.form-error').removeClass('show').text('');
+}
+
+function closeModal(id) {
+  $('#' + id).removeClass('active');
+  if (id === 'task-modal') {
+    currentTask = null;
+    clearTimeout(saveTimer);
+  }
+}
+
+function showError(id, msg) {
+  $('#' + id).addClass('show').text(msg);
+}
+
+function toast(msg, type) {
+  const $t = $(`<div class="toast ${type}">${msg}</div>`);
+  $('#toast-container').append($t);
+  setTimeout(() => $t.fadeOut(300, () => $t.remove()), 3000);
+}
+
+function escHtml(str) {
+  return $('<div>').text(str).html();
+}
+</script>
+</body>
+</html>
